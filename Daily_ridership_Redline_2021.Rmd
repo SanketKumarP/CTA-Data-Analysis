@@ -1,0 +1,490 @@
+```{r}
+#reading data from ridership entries 
+library(readr)
+library(dplyr)
+
+
+#reading daily totals of stations in L
+daily_totals <- read_csv("/Users/ranjithaaswath/Downloads/Ridership_Analysis/CTA_-_Ridership_-__L__Station_Entries_-_Daily_Totals.csv")
+
+#reading stations in Red Line
+redline_stations <- read_csv("/Users/ranjithaaswath/Downloads/Ridership_Analysis/Redlines.csv")
+
+summary(daily_totals)
+head(daily_totals)
+
+```
+
+
+```{r}
+#cahanging date to date format
+daily_totals$date <- as.Date(daily_totals$date, format = "%m/%d/%Y")
+daily_totals
+```
+
+
+```{r}
+# taking yearly data 2021
+daily_totals_filtered <- daily_totals %>%
+  filter(format(date, "%Y") == "2021")
+
+daily_totals_filtered
+```
+
+
+```{r}
+
+# selecting only redline station ids
+merged_table <- inner_join(daily_totals_filtered, redline_stations, by = c("station_id" = "MAP_ID"))
+merged_table
+
+```
+
+
+```{r}
+#cleaning merged table to concentrate on needed rows
+merged_table_cleaned<-subset(merged_table,select = -c(avg_weekday_rides,avg_saturday_rides,avg_sunday.holiday_rides,monthtotal))
+
+#cleaning empty colums
+merged_table_cleaned <- merged_table_cleaned[, colSums(is.na(merged_table_cleaned)) < nrow(merged_table_cleaned)]
+
+# Step 3: Remove empty rows
+merged_table_cleaned <-merged_table_cleaned[complete.cases(merged_table_cleaned), ]
+
+merged_table_cleaned
+
+```
+```{r}
+#removing empty rows
+nrow(merged_table_cleaned)
+print(which(!complete.cases(merged_table_cleaned)))
+```
+```{r}
+#sorting stations for particular dates
+daily_totals_filtered_ordered <- merged_table_cleaned[order(merged_table_cleaned$date), ]
+daily_totals_filtered_ordered
+```
+```{r}
+#to get toatl rides for Red line on for 2021
+daily_totals_Redline <- daily_totals_filtered_ordered %>%
+  group_by(date) %>%
+  mutate(SumColumn = sum(rides))
+
+daily_totals_Redline
+```
+```{r}
+#seperating dates and daily total rides for 2021 of REDline
+library(dplyr)
+redline_daily_total <- daily_totals_Redline %>%
+  select(date,SumColumn)
+
+redline_daily_total
+```
+```{r}
+#removing duplicates
+redline_daily_rides <- redline_daily_total %>%
+   distinct(date, .keep_all = TRUE)
+redline_daily_rides
+```
+```{r}
+#naming days of the week
+library(dplyr)
+library(lubridate)
+redline_daily_rides <- redline_daily_rides %>%
+  mutate(DayOfWeek = weekdays(date))
+
+redline_daily_rides
+```
+```{r}
+#analysing data for specific day of the week for entire year
+library(ggplot2)
+library(dplyr)
+
+#Saturday
+filtered_data_Saturday <- redline_daily_rides %>%
+  filter(DayOfWeek == "Saturday") %>%
+  select(date, SumColumn)
+#Sunday
+filtered_data_Sunday <- redline_daily_rides %>%
+  filter(DayOfWeek == "Sunday") %>%
+  select(date, SumColumn)
+#Monday
+filtered_data_Monday <- redline_daily_rides %>%
+  filter(DayOfWeek == "Monday") %>%
+  select(date, SumColumn)
+#Tuesday
+filtered_data_Tuesday <- redline_daily_rides %>%
+  filter(DayOfWeek == "Tuesday") %>%
+  select(date, SumColumn)
+#Wednesday
+filtered_data_Wednesday <- redline_daily_rides %>%
+  filter(DayOfWeek == "Saturday") %>%
+  select(date, SumColumn)
+#Thursday
+filtered_data_Thursday <- redline_daily_rides %>%
+  filter(DayOfWeek == "Thursday") %>%
+  select(date, SumColumn)
+#Friday
+filtered_data_Friday <- redline_daily_rides %>%
+  filter(DayOfWeek == "Friday") %>%
+  select(date, SumColumn)
+
+#Saturday
+ggplot(filtered_data_Saturday, aes(x = date, y = SumColumn)) +
+  geom_point() +
+  labs(title = "RedLine Rides on Saturday 2021",
+       x = "Dates",
+       y = "Daily Total Rides")
+#Sunday
+ggplot(filtered_data_Sunday, aes(x = date, y = SumColumn)) +
+  geom_point() +
+  labs(title = "RedLine Rides on Sunday 2021",
+       x = "Dates",
+       y = "Daily Total Rides")
+#Monday
+ggplot(filtered_data_Monday, aes(x = date, y = SumColumn)) +
+  geom_point() +
+  labs(title = "RedLine Rides on Monday 2021",
+       x = "Dates",
+       y = "Daily Total Rides")
+#Tuesday
+ggplot(filtered_data_Tuesday, aes(x = date, y = SumColumn)) +
+  geom_point() +
+  labs(title = "RedLine Rides on Tuesday 2021",
+       x = "Dates",
+       y = "Daily Total Rides")
+#Wednesday
+ggplot(filtered_data_Wednesday, aes(x = date, y = SumColumn)) +
+  geom_point() +
+  labs(title = "RedLine Rides on Wednesday 2021",
+       x = "Dates",
+       y = "Daily Total Rides")
+#Thursday
+ggplot(filtered_data_Thursday, aes(x = date, y = SumColumn)) +
+  geom_point() +
+  labs(title = "RedLine Rides on Thursdayy 2021",
+       x = "Dates",
+       y = "Daily Total Rides")
+#Friday
+ggplot(filtered_data_Friday, aes(x = date, y = SumColumn)) +
+  geom_point() +
+  labs(title = "RedLine Rides on Friday 2021",
+       x = "Dates",
+       y = "Daily Total Rides")
+
+```
+
+```{r}
+#regression analysis 
+library(ggplot2)
+#Saturday
+#Polynomial regression, degree 3
+poly_degree3 <- 3
+poly_reg_model3 <- lm(SumColumn ~ poly(date, poly_degree3), data = filtered_data_Saturday)
+
+# Create a new data frame with predicted values
+predicted_data <- data.frame(date = filtered_data_Saturday$date,
+                             SumColumn = predict(poly_reg_model3, newdata = filtered_data_Saturday))
+
+
+# Plot the scatter plot with regression line
+ggplot(filtered_data_Saturday, aes(x = date, y = SumColumn)) +
+  geom_point() +                     # Scatter plot
+  geom_line(data = predicted_data, aes(x = date, y = SumColumn), color = "red") +  # Regression line
+  labs(title = "Polynomial Regression-d3 for redline saturdays of 2021",
+       x = "date",
+       y = "total_daily_rides")
+
+#Checking accuracy
+
+# Get the actual values of the date column
+actual_values_p3_sat <- filtered_data_Saturday$SumColumn
+
+# Get the predicted values of the date variable
+predicted_values_p3_sat <- predict(poly_reg_model3, newdata = filtered_data_Saturday)
+
+
+# Calculate RMSE
+rmse <- sqrt(mean((actual_values_p3_sat - predicted_values_p3_sat)**2))
+
+# Calculate R-squared
+r_squared <- summary(poly_reg_model3)$r.squared
+
+# Print the evaluation metrics
+print(paste("RMSE:", rmse))
+print(paste("R-squared:", r_squared))
+
+# Average value
+average_value <- mean(predicted_data$SumColumn)
+
+# Print the average value
+print(paste("Average value of Number of riders on Saturday of 2021", average_value))
+
+```
+```{r}
+#Sunday
+#Polynomial regression, degree 3
+poly_degree3 <- 3
+poly_reg_model3 <- lm(SumColumn ~ poly(date, poly_degree3), data = filtered_data_Sunday)
+
+# Create a new data frame with predicted values
+predicted_data <- data.frame(date = filtered_data_Sunday$date,
+                             SumColumn = predict(poly_reg_model3, newdata = filtered_data_Sunday))
+
+
+# Plot the scatter plot with regression line
+ggplot(filtered_data_Sunday, aes(x = date, y = SumColumn)) +
+  geom_point() +                     # Scatter plot
+  geom_line(data = predicted_data, aes(x = date, y = SumColumn), color = "red") +  # Regression line
+  labs(title = "Polynomial Regression-d3 for redline Sundays of 2021 ",
+       x = "date",
+       y = "total_daily_rides")
+
+#Checking accuracy
+
+# Get the actual values of the date column
+actual_values_p3_sun <- filtered_data_Sunday$SumColumn
+
+# Get the predicted values of the date variable
+predicted_values_p3_sun <- predict(poly_reg_model3, newdata = filtered_data_Sunday)
+
+
+# Calculate RMSE
+rmse <- sqrt(mean((actual_values_p3_sun - predicted_values_p3_sun)**2))
+
+# Calculate R-squared
+r_squared <- summary(poly_reg_model3)$r.squared
+
+# Print the evaluation metrics
+print(paste("RMSE:", rmse))
+print(paste("R-squared:", r_squared))
+
+# Average value
+average_value <- mean(predicted_data$SumColumn)
+
+# Print the average value
+print(paste("Average value of Number of riders on Sunday of 2021 :", average_value))
+
+```
+```{r}
+#Monday
+#Polynomial regression, degree 3
+poly_degree3 <- 3
+poly_reg_model3 <- lm(SumColumn ~ poly(date, poly_degree3), data = filtered_data_Monday)
+
+# Create a new data frame with predicted values
+predicted_data <- data.frame(date = filtered_data_Monday$date,
+                             SumColumn = predict(poly_reg_model3, newdata = filtered_data_Monday))
+
+
+# Plot the scatter plot with regression line
+ggplot(filtered_data_Monday, aes(x = date, y = SumColumn)) +
+  geom_point() +                     # Scatter plot
+  geom_line(data = predicted_data, aes(x = date, y = SumColumn), color = "red") +  # Regression line
+  labs(title = "Polynomial Regression-d3 for redline Mondays of 2021 ",
+       x = "date",
+       y = "total_daily_rides")
+
+#Checking accuracy
+
+# Get the actual values of the date column
+actual_values_p3_mon <- filtered_data_Monday$SumColumn
+
+# Get the predicted values of the date variable
+predicted_values_p3_mon <- predict(poly_reg_model3, newdata = filtered_data_Monday)
+
+
+# Calculate RMSE
+rmse <- sqrt(mean((actual_values_p3_mon - predicted_values_p3_mon)**2))
+
+# Calculate R-squared
+r_squared <- summary(poly_reg_model3)$r.squared
+
+# Print the evaluation metrics
+print(paste("RMSE:", rmse))
+print(paste("R-squared:", r_squared))
+
+# Average value
+average_value <- mean(predicted_data$SumColumn)
+
+# Print the average value
+print(paste("Average value of Number of riders on Monday of 2021:", average_value))
+```
+```{r}
+#Tuesday
+#Polynomial regression, degree 3
+poly_degree3 <- 3
+poly_reg_model3 <- lm(SumColumn ~ poly(date, poly_degree3), data = filtered_data_Tuesday)
+
+# Create a new data frame with predicted values
+predicted_data <- data.frame(date = filtered_data_Tuesday$date,
+                             SumColumn = predict(poly_reg_model3, newdata = filtered_data_Tuesday))
+
+
+# Plot the scatter plot with regression line
+ggplot(filtered_data_Tuesday, aes(x = date, y = SumColumn)) +
+  geom_point() +                     # Scatter plot
+  geom_line(data = predicted_data, aes(x = date, y = SumColumn), color = "red") +  # Regression line
+  labs(title = "Polynomial Regression-d3 for redline Tuesdays of 2021 ",
+       x = "date",
+       y = "total_daily_rides")
+
+#Checking accuracy
+
+# Get the actual values of the date column
+actual_values_p3_tue <- filtered_data_Tuesday$SumColumn
+
+# Get the predicted values of the date variable
+predicted_values_p3_tue <- predict(poly_reg_model3, newdata = filtered_data_Tuesday)
+
+
+# Calculate RMSE
+rmse <- sqrt(mean((actual_values_p3_tue - predicted_values_p3_tue)**2))
+
+# Calculate R-squared
+r_squared <- summary(poly_reg_model3)$r.squared
+
+# Print the evaluation metrics
+print(paste("RMSE:", rmse))
+print(paste("R-squared:", r_squared))
+
+# Average value
+average_value <- mean(predicted_data$SumColumn)
+
+# Print the average value
+print(paste("Average value of Number of riders on Tuesday of 2021:", average_value))
+```
+```{r}
+#Wednesday
+#Polynomial regression, degree 3
+poly_degree3 <- 3
+poly_reg_model3 <- lm(SumColumn ~ poly(date, poly_degree3), data = filtered_data_Wednesday)
+
+# Create a new data frame with predicted values
+predicted_data <- data.frame(date = filtered_data_Wednesday$date,
+                             SumColumn = predict(poly_reg_model3, newdata = filtered_data_Wednesday))
+
+
+# Plot the scatter plot with regression line
+ggplot(filtered_data_Wednesday, aes(x = date, y = SumColumn)) +
+  geom_point() +                     # Scatter plot
+  geom_line(data = predicted_data, aes(x = date, y = SumColumn), color = "red") +  # Regression line
+  labs(title = "Polynomial Regression-d3 for redline Wednesday of 2021 ",
+       x = "date",
+       y = "total_daily_rides")
+
+#Checking accuracy
+
+# Get the actual values of the date column
+actual_values_p3_wed <- filtered_data_Wednesday$SumColumn
+
+# Get the predicted values of the date variable
+predicted_values_p3_wed <- predict(poly_reg_model3, newdata = filtered_data_Wednesday)
+
+
+# Calculate RMSE
+rmse <- sqrt(mean((actual_values_p3_wed - predicted_values_p3_wed)**2))
+
+# Calculate R-squared
+r_squared <- summary(poly_reg_model3)$r.squared
+
+# Print the evaluation metrics
+print(paste("RMSE:", rmse))
+print(paste("R-squared:", r_squared))
+
+# Average value
+average_value <- mean(predicted_data$SumColumn)
+
+# Print the average value
+print(paste("Average value of Number of riders on Wednesday of 2021:", average_value))
+```
+```{r}
+##Thursday
+#Polynomial regression, degree 3
+poly_degree3 <- 3
+poly_reg_model3 <- lm(SumColumn ~ poly(date, poly_degree3), data = filtered_data_Thursday)
+
+# Create a new data frame with predicted values
+predicted_data <- data.frame(date = filtered_data_Thursday$date,
+                             SumColumn = predict(poly_reg_model3, newdata = filtered_data_Thursday))
+
+
+# Plot the scatter plot with regression line
+ggplot(filtered_data_Thursday, aes(x = date, y = SumColumn)) +
+  geom_point() +                     # Scatter plot
+  geom_line(data = predicted_data, aes(x = date, y = SumColumn), color = "red") +  # Regression line
+  labs(title = "Polynomial Regression-d3 for redline Thursdays of 2021 ",
+       x = "date",
+       y = "total_daily_rides")
+
+#Checking accuracy
+
+# Get the actual values of the date column
+actual_values_p3_thu <- filtered_data_Thursday$SumColumn
+
+# Get the predicted values of the date variable
+predicted_values_p3_thu <- predict(poly_reg_model3, newdata = filtered_data_Thursday)
+
+
+# Calculate RMSE
+rmse <- sqrt(mean((actual_values_p3_thu - predicted_values_p3_thu)**2))
+
+# Calculate R-squared
+r_squared <- summary(poly_reg_model3)$r.squared
+
+# Print the evaluation metrics
+print(paste("RMSE:", rmse))
+print(paste("R-squared:", r_squared))
+
+# Average value
+average_value <- mean(predicted_data$SumColumn)
+
+# Print the average value
+print(paste("Average value of Number of riders on Thursday of 2021:", average_value))
+```
+```{r}
+#Friday
+#Polynomial regression, degree 3
+poly_degree3 <- 3
+poly_reg_model3 <- lm(SumColumn ~ poly(date, poly_degree3), data = filtered_data_Friday)
+
+# Create a new data frame with predicted values
+predicted_data <- data.frame(date = filtered_data_Friday$date,
+                             SumColumn = predict(poly_reg_model3, newdata = filtered_data_Friday))
+
+
+# Plot the scatter plot with regression line
+ggplot(filtered_data_Friday, aes(x = date, y = SumColumn)) +
+  geom_point() +                     # Scatter plot
+  geom_line(data = predicted_data, aes(x = date, y = SumColumn), color = "red") +  # Regression line
+  labs(title = "Polynomial Regression-d3 for redline Fridays of 2021 ",
+       x = "date",
+       y = "total_daily_rides")
+
+#Checking accuracy
+
+# Get the actual values of the date column
+actual_values_p3_fri <- filtered_data_Friday$SumColumn
+
+# Get the predicted values of the date variable
+predicted_values_p3_fri <- predict(poly_reg_model3, newdata = filtered_data_Friday)
+
+
+# Calculate RMSE
+rmse <- sqrt(mean((actual_values_p3_fri - predicted_values_p3_fri)**2))
+
+# Calculate R-squared
+r_squared <- summary(poly_reg_model3)$r.squared
+
+# Print the evaluation metrics
+print(paste("RMSE:", rmse))
+print(paste("R-squared:", r_squared))
+
+# Average value
+average_value <- mean(predicted_data$SumColumn)
+
+# Print the average value
+print(paste("Average value of Number of riders on Friday of 2021:", average_value))
+
+```
+

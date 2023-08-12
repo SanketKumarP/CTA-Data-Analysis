@@ -1,0 +1,137 @@
+---
+title: "L-Station Analysis"
+author: "Team_DPA"
+date: "2023-07-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(leaflet)
+library(leaflet.extras)
+
+# Loading rail station data
+
+Main_data=read.csv("/Users/ranjithaaswath/Downloads/drive-download-20230725T234618Z-001/CTA_-_System_Information_-_List_of__L__Stops.csv")
+
+summary(Main_data)
+```
+```{r}
+#data cleaning , keeping only relevant data columns
+All_Line<-subset(Main_data,select = c(STOP_ID,DIRECTION_ID,STOP_NAME,STATION_NAME,STATION_DESCRIPTIVE_NAME,MAP_ID,Location)) #Change Last column to target Line
+All_Line
+```
+
+```{r}
+
+#All_Line <-All_Line %>% filter(str_to_lower(str_trim(O)) != "false") #change Column to target line
+#All_Line <-All_Line %>% filter(str_to_lower(str_trim(DIRECTION_ID)) != "s")
+summary(All_Line)
+```
+
+
+```{r}
+# Extract X and Y coordinates from the "Location" column
+All_Line$X <- as.numeric(gsub("\\((.*),.*", "\\1", All_Line$Location))
+All_Line$Y <- as.numeric(gsub(".*,(.*)\\)", "\\1", All_Line$Location))
+
+# Remove the original "Location" column
+All_Line<-subset(All_Line,select = -c(Location))
+All_Line
+```
+```{r}
+data_monthly_avg=read.csv("/Users/ranjithaaswath/Downloads/drive-download-20230725T234618Z-001/CTA_-_Ridership_-__L__Station_Entries_-_Monthly_Day-Type_Averages___Totals.csv")
+
+summary(data_monthly_avg)
+```
+```{r}
+# Changing Data type of Date column
+data_monthly_avg$month_beginning <- as.Date(data_monthly_avg$month_beginning, format = "%m/%d/%Y")
+data_monthly_avg
+
+specific_date <- "2023-01-01"  # Replace this with the date you want to filter
+
+# Using subset function
+Target_monthly_avg <- subset(data_monthly_avg, month_beginning == as.Date(specific_date))
+Target_monthly_avg
+```
+```{r}
+
+merged_table <- inner_join(All_Line, Target_monthly_avg, by = c("MAP_ID" = "station_id"))
+merged_table_cleaned<-subset(merged_table,select = -c(STOP_ID,DIRECTION_ID,STATION_NAME,STATION_DESCRIPTIVE_NAME,stationame,month_beginning))
+merged_table_cleaned
+
+# Specify the file path where you want to save the CSV file
+file_path <- "/Users/ranjithaaswath/Documents/L-Station_Analysis/All_rail_lines.csv"
+
+# Copy the data frame to a CSV file
+write.csv(merged_table_cleaned, file = file_path, row.names = FALSE)
+```
+```{r}
+
+# Convert the character column to integer # Convert avg_weekday_rides to numeric (remove comma and convert to numeric)
+merged_table_cleaned$avg_weekday_rides <- as.numeric(gsub(",", "", merged_table_cleaned$avg_weekday_rides))
+merged_table_cleaned$avg_saturday_rides <- as.numeric(gsub(",", "", merged_table_cleaned$avg_saturday_rides))
+merged_table_cleaned$avg_sunday.holiday_rides <- as.numeric(gsub(",", "", merged_table_cleaned$avg_sunday.holiday_rides))
+merged_table_cleaned$monthtotal <- as.numeric(gsub(",", "", merged_table_cleaned$monthtotal))
+
+merged_table_cleaned <-merged_table_cleaned %>% filter((avg_weekday_rides) != "0")
+summary(merged_table_cleaned)
+merged_table_cleaned
+```
+```{r}
+
+# Create a leaflet map object
+map <- leaflet(data = merged_table_cleaned) %>%
+  addTiles()  # Add default OpenStreetMap tiles as a base layer
+
+# Add markers to the map
+map_markers <- map %>%
+  addCircleMarkers(
+    lng = ~Y,  # Longitude
+    lat = ~X,  # Latitude
+    popup = ~STOP_NAME,  # Popup text for each marker
+    label = ~avg_weekday_rides,  # Display avg_weekday_rides as the label on the marker
+    labelOptions = labelOptions(noHide = FALSE)  # Keep the label always visible
+  )
+
+# Show the map
+map_markers
+
+```
+
+```{r}
+# Create a leaflet map object for the heatmap
+map_heatmap <- leaflet(data = merged_table_cleaned) %>%
+  addTiles()  # Add default OpenStreetMap tiles as a base layer
+
+# Add the heatmap layer
+map_heatmap <- map_heatmap %>%
+  addHeatmap(
+    lng = merged_table_cleaned$Y,  # Longitude
+    lat = merged_table_cleaned$X,  # Latitude
+    intensity = merged_table_cleaned$avg_weekday_rides,  # Intensity for the heatmap
+    blur = 20,  # Adjust the blur for the heatmap
+    max = 7500,  # Maximum value for the heatmap
+    radius = 20  # Adjust the radius for the heatmap
+  )
+
+# Add a legend (scale) to the map
+map_heatmap <- map_heatmap %>%
+  addLegend(
+    "bottomright",  # Legend position
+    title = "Rides",  # Legend title
+    colors = viridisLite::plasma(6),  # Color palette for the legend
+    labels = c(0, 1500, 3000, 4500, 6000, 7500),  # Custom labels for the legend
+    opacity = 0.7  # Opacity of the legend
+  )
+
+# Show the heatmap
+map_heatmap
+```
+
+
+
